@@ -1,0 +1,81 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Sunbeams</title>
+    <link rel="stylesheet" href="css/story.css">
+  </head>
+  <body id="body">
+    <script> 
+      (function () { 
+        var inter;
+
+        var frames = [
+          { name: 'move-up', start: 'bottom', top: '100vh', endpos: '0vh', alternate: 'left'},
+          { name: 'move-down', start: 'top', top: '0vh', startpos: '0vh', startpos: '100vh', },
+          { name: 'move-left', start: 'right', left: '0vw', startpos: '100vw', startpos: '0vw', },
+          { name: 'move-right', start: 'left', left: '100vw', startpos: '0vw', startpos: '100vw', }
+        ]
+        
+        function addCotton() {
+          var p = document.createElement('p')
+          var b = document.getElementById('body');
+          var textNode = document.createTextNode('*');
+          var id = Date.now();
+          p.classList.add('question-mark')
+          p.setAttribute('id', id)
+
+          var idx = getRandomVal(0,4)
+          if(frames[idx].start === 'left') {
+            p.style.left = '0px';
+            p.style.top = getRandomVal(0,100) + 'vh';
+          }
+
+          if(frames[idx].start === 'top') {
+            p.style.top = '0px'
+            p.style.left = getRandomVal(0,100) + 'vw';
+          }
+
+          if(frames[idx].start === 'right') {
+            p.style.right = '0px';
+            p.style.top = getRandomVal(0,100) + 'vh';
+          }
+
+          if(frames[idx].start === 'bottom') {
+            p.style.bottom = '0px';
+            p.style.left = getRandomVal(0,100) + 'vw';
+          }
+
+          var fontSize = getRandomVal(10,30);
+          var op = getRandomVal(50,100);
+          var anim = getRandomVal(20,120);
+          p.style.fontSize = fontSize + 'px';
+          p.style.height = fontSize + 'px';
+          p.style.filter = 'blur('+getRandomVal(2,4)+'px) opacity('+op+'%)';
+          p.style.animation = frames[idx].name + ' ' + anim + 's';
+
+          p.appendChild(textNode);
+          b.appendChild(p);
+
+          setTimeout(function() { 
+            var q = document.getElementById(id)
+            if(q) {
+              q.parentNode.removeChild(q);
+            }
+          }, (anim*1000)+2000)
+
+        }
+
+        function startAnim() {
+          inter = setInterval( function() { addCotton() }, 1000)
+        }
+
+        function getRandomVal(min, max) {
+          return Math.floor(Math.random() * (max - min)) + min;
+        }
+      
+        startAnim();
+
+      })();    
+    </script>
+  </body>
+</html>
