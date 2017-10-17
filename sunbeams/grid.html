@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Sunbeams</title>
+    <link rel="stylesheet" href="css/story.css">
+  
+    <style>
+      body {
+        margin:0;
+        padding:0;
+      }
+
+      #container {
+        display:flex;
+        align-items:stretch;
+        width:100%;
+        height:100%;
+        margin:0;
+        padding:0;
+      } 
+
+      #container > div {
+        margin;0;
+        padding:0;
+        width:25%;
+      }
+
+      #one {
+        background: rgba(255, 255, 255, 0.8);
+      }
+
+      #two {
+        background: rgba(128, 128, 128, 0.6);        
+      }
+      
+      #three {
+        background: rgba(0, 0, 255, 0.4);
+      }
+
+      #four {
+        background: rgba(0, 15, 65, 0.2);        
+      }
+
+    </style>
+  </head>
+  <body id="body">
+    <div id='container'>
+ 
+    </div>
+    <script> 
+      (function () { 
+        
+        function draw(n) {
+          //loop n times
+          for(var x=0;x<n;x++) {
+            
+            //create a div
+            var d = document.createElement('div')
+
+            //assign it a random color, alpha
+            var r = getRandomHex(0,255)
+            var g = getRandomHex(0,255)
+            var b = getRandomHex(0,255)
+            var a = getRandomFloat(0.1,0.75)
+            d.style.backgroundColor = 'rgba(' + r + ',' + g + ',' + b + ','+ a +')';
+ 
+            //assign it a random-ish width
+            d.style.width = 100/n + '%';
+            
+            //add
+            document.getElementById('container').appendChild(d);
+          }
+        }
+
+        function getRandomHex(min,max) {
+          var r = Math.random() * (max - min) + min;
+          return parseInt(r.toString(16), 16);
+        }
+
+        function getRandomFloat(min, max) {
+          return Math.random() * (max - min) + min;
+        }
+
+        draw(parseInt(getRandomFloat(1, 30)));  
+      })();    
+    </script>
+  </body>
+</html>
