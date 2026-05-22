@@ -1,0 +1,229 @@
+<!doctype html>
+<html>
+<head>
+  <title>Slime Mold</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+(function () {
+
+  var canvas  = document.getElementById('c');
+  var ctx     = canvas.getContext('2d');
+  var W, H;
+
+  // ── Tuning ──────────────────────────────────────────────
+  var NUM_AGENTS    = 1200;   // number of slime agents
+  var SPEED         = 1.5;    // pixels per frame
+  var TURN_ANGLE    = 0.4;    // max random turn per frame (radians)
+  var SENSOR_ANGLE  = 0.45;   // angle offset for side sensors (radians)
+  var SENSOR_DIST   = 12;     // how far ahead agents sample the trail
+  var DEPOSIT       = 6;      // trail strength deposited per frame
+  var DECAY         = 0.97;   // trail fades each frame (1 = no decay)
+  var DIFFUSE       = 0.18;   // how much trail spreads to neighbours
+  var MOUSE_RADIUS  = 120;    // pixels of mouse influence
+  var MOUSE_DEPOSIT = 40;     // trail deposited at mouse position
+  // ────────────────────────────────────────────────────────
+
+  var agents  = [];
+  var trail;    // Float32Array — trail intensity per pixel
+  var trailBuf; // second buffer for diffusion pass
+
+  var mouseX = -9999, mouseY = -9999, mouseDown = false;
+
+  document.addEventListener('mousemove', function (e) { mouseX = e.clientX; mouseY = e.clientY; });
+  document.addEventListener('mousedown', function ()  { mouseDown = true;  });
+  document.addEventListener('mouseup',   function ()  { mouseDown = false; });
+  document.addEventListener('touchmove', function (e) {
+    e.preventDefault();
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  }, { passive: false });
+  document.addEventListener('touchstart', function (e) {
+    mouseDown = true;
+    mouseX = e.touches[0].clientX;
+    mouseY = e.touches[0].clientY;
+  });
+  document.addEventListener('touchend', function () { mouseDown = false; });
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    trail    = new Float32Array(W * H);
+    trailBuf = new Float32Array(W * H);
+  }
+
+  function initAgents() {
+    agents = [];
+    var cx = W / 2, cy = H / 2;
+    for (var i = 0; i < NUM_AGENTS; i++) {
+      // Start in a circle at centre
+      var angle = Math.random() * Math.PI * 2;
+      var r     = Math.random() * Math.min(W, H) * 0.25;
+      agents.push({
+        x:   cx + Math.cos(angle) * r,
+        y:   cy + Math.sin(angle) * r,
+        dir: angle + Math.PI   // face outward initially
+      });
+    }
+  }
+
+  // Sample trail at a position (with bounds check)
+  function sense(x, y) {
+    var ix = Math.round(x), iy = Math.round(y);
+    if (ix < 0 || ix >= W || iy < 0 || iy >= H) return 0;
+    return trail[iy * W + ix];
+  }
+
+  function stepAgents() {
+    for (var i = 0; i < agents.length; i++) {
+      var a = agents[i];
+
+      // Sample three sensors: forward, left, right
+      var fwd = sense(
+        a.x + Math.cos(a.dir) * SENSOR_DIST,
+        a.y + Math.sin(a.dir) * SENSOR_DIST
+      );
+      var lft = sense(
+        a.x + Math.cos(a.dir - SENSOR_ANGLE) * SENSOR_DIST,
+        a.y + Math.sin(a.dir - SENSOR_ANGLE) * SENSOR_DIST
+      );
+      var rgt = sense(
+        a.x + Math.cos(a.dir + SENSOR_ANGLE) * SENSOR_DIST,
+        a.y + Math.sin(a.dir + SENSOR_ANGLE) * SENSOR_DIST
+      );
+
+      // Steer toward strongest trail signal
+      if (fwd >= lft && fwd >= rgt) {
+        // continue forward, small random wobble
+        a.dir += (Math.random() - 0.5) * TURN_ANGLE * 0.5;
+      } else if (lft > rgt) {
+        a.dir -= Math.random() * TURN_ANGLE;
+      } else if (rgt > lft) {
+        a.dir += Math.random() * TURN_ANGLE;
+      } else {
+        // tie — random turn
+        a.dir += (Math.random() - 0.5) * TURN_ANGLE;
+      }
+
+      // Move forward
+      a.x += Math.cos(a.dir) * SPEED;
+      a.y += Math.sin(a.dir) * SPEED;
+
+      // Bounce off edges
+      if (a.x < 0)      { a.x = 0;     a.dir = Math.PI - a.dir; }
+      if (a.x >= W)     { a.x = W - 1; a.dir = Math.PI - a.dir; }
+      if (a.y < 0)      { a.y = 0;     a.dir = -a.dir; }
+      if (a.y >= H)     { a.y = H - 1; a.dir = -a.dir; }
+
+      // Deposit trail
+      var ix = Math.round(a.x), iy = Math.round(a.y);
+      if (ix >= 0 && ix < W && iy >= 0 && iy < H) {
+        trail[iy * W + ix] = Math.min(255, trail[iy * W + ix] + DEPOSIT);
+      }
+    }
+  }
+
+  function diffuseAndDecay() {
+    // Simple 3x3 box blur on the trail, then decay
+    for (var y = 1; y < H - 1; y++) {
+      for (var x = 1; x < W - 1; x++) {
+        var idx = y * W + x;
+        var avg = (
+          trail[idx]
+          + trail[idx - 1]
+          + trail[idx + 1]
+          + trail[idx - W]
+          + trail[idx + W]
+          + trail[idx - W - 1]
+          + trail[idx - W + 1]
+          + trail[idx + W - 1]
+          + trail[idx + W + 1]
+        ) / 9;
+        trailBuf[idx] = ((1 - DIFFUSE) * trail[idx] + DIFFUSE * avg) * DECAY;
+      }
+    }
+    // Swap buffers
+    var tmp = trail;
+    trail = trailBuf;
+    trailBuf = tmp;
+  }
+
+  function applyMouse() {
+    if (mouseX < 0) return;
+    var r = MOUSE_RADIUS;
+    var deposit = mouseDown ? MOUSE_DEPOSIT * 3 : MOUSE_DEPOSIT;
+    var x0 = Math.max(0,     Math.round(mouseX - r));
+    var x1 = Math.min(W - 1, Math.round(mouseX + r));
+    var y0 = Math.max(0,     Math.round(mouseY - r));
+    var y1 = Math.min(H - 1, Math.round(mouseY + r));
+
+    for (var y = y0; y <= y1; y++) {
+      for (var x = x0; x <= x1; x++) {
+        var dx = x - mouseX, dy = y - mouseY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < r) {
+          var strength = (1 - dist / r) * deposit;
+          trail[y * W + x] = Math.min(255, trail[y * W + x] + strength);
+        }
+      }
+    }
+  }
+
+  // Render trail to canvas using ImageData for speed
+  var imageData, pixels;
+
+  function render() {
+    if (!imageData || imageData.width !== W || imageData.height !== H) {
+      imageData = ctx.createImageData(W, H);
+      pixels = imageData.data;
+    }
+
+    for (var i = 0; i < trail.length; i++) {
+      var v = trail[i];
+      var p = i * 4;
+      // Map intensity to a warm yellow-green slime palette
+      pixels[p]     = v * 0.4 | 0;          // R — slight warmth
+      pixels[p + 1] = v * 0.95 | 0;         // G — dominant green
+      pixels[p + 2] = v * 0.2 | 0;          // B — minimal blue
+      pixels[p + 3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+  }
+
+  function loop() {
+    applyMouse();
+    stepAgents();
+    diffuseAndDecay();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', function () {
+    resize();
+    initAgents();
+  });
+
+  resize();
+  initAgents();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>

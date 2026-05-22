@@ -1,0 +1,136 @@
+html, body, section {
+  height:100%;
+  font-size:32px;
+}
+
+body {
+  background: url(../img/beams.jpg) no-repeat center center fixed; 
+  background-size: cover;
+  overflow: hidden;
+} 
+
+div.header:first-of-type {
+  margin-top:0;
+}
+
+div.header {  
+  margin-top:50px;
+  padding:10px 0px;
+  background-color: rgba(204,204,204,0.3);;
+}
+
+
+p.headerText {
+  color: #fff;
+}
+
+p.answer {
+  margin:0;
+  padding:0;
+  font-size:.7em;
+  color:yellow;
+}
+
+.white {
+  color:#fff;
+  text-shadow: 2px 2px 2px rgba(0, 0, 0, 1);
+}
+
+.hero {
+  background-color: #999;
+  position: absolute;
+  height: 200px;
+  top: 377px;
+  right: -1000px;
+  left: -1000px;
+  color: #fff;
+  text-align: right;
+  padding-bottom: 0px;
+  opacity: .7;
+
+}
+
+ul {
+  text-shadow: 2px 2px 2px rgba(0, 0, 0, 1);
+}
+.onTop {
+  position: absolute;
+  height: 200px;
+  top: 377px;
+  right: 0px;
+  left: 0px;
+  text-align: right;
+  padding-bottom: 0px;
+  z-index:99;
+  color: #fff;
+}
+
+.onTop p {
+  font-size: 90px;
+  padding:0 20px 0;
+  margin:0;
+  opacity:1;
+}
+
+.onTop p.sub {
+  font-size:.5em;
+  opacity:1;
+}
+
+.container {
+  min-height: 100vh;
+}
+
+.image-container {
+  position:absolute;
+  z-index:99;
+  border:2px solid #ccc;
+  border-radius: 20px;
+  height:0;
+  width:0;
+  transition: all .2s ease-in-out;
+}
+
+.image-horz {
+   width:640px;
+   height:480px;
+}
+
+.image-vert {
+   width:480px;
+   height:640px;
+}
+
+.image {
+  z-index:99;
+  position:absolute;
+}
+
+.question-mark {
+  padding:0;
+  margin:0;
+  position:absolute;
+  z-index:99;
+  color:#ccc;
+}
+
+
+@keyframes move-up {
+    from {bottom : 0px;} 
+    to { bottom: calc(100% + 80px);}
+} 
+
+@keyframes move-left {
+    from {right : 0px;} 
+    to { right: calc(100% + 80px);;}
+}
+
+@keyframes move-right {
+    from { left : 0px;} 
+    to { left: calc(100% + 80px);;}
+} 
+
+@keyframes move-down {
+    from {top :0px;} 
+    to {top: calc(100% + 80px);}
+}  

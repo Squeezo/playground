@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+<head>
+  <title>Flocking</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    body {
+      background: url(img/beams.jpg) no-repeat center center fixed; 
+    }
+
+    .boid {
+      position: absolute;
+      top: 0;
+      left: 0;
+      padding: 0;
+      margin: 0;
+      color: #ccc;
+      pointer-events: none;
+      will-change: transform;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body id="body">
+  <script>
+    (function () {
+
+      var NUM_BOIDS       = 60;
+      var MAX_SPEED       = 1.5;
+      var MAX_FORCE       = 0.08;
+      var PERCEPTION      = 80;   // radius for alignment + cohesion
+      var SEPARATION_DIST = 32;   // radius for separation
+      var W_SEP           = 1.5;
+      var W_ALI           = 1.0;
+      var W_COH           = 1.0;
+
+      var MOUSE_RADIUS = 150;
+      var MOUSE_FORCE  = 0.4;
+
+      var boids = [];
+      var W = window.innerWidth;
+      var H = window.innerHeight;
+      var mouseX = -9999;
+      var mouseY = -9999;
+      var mouseDown = false;
+
+      document.addEventListener('mousemove', function(e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      });
+
+      document.addEventListener('mousedown', function() { mouseDown = true; });
+      document.addEventListener('mouseup',   function() { mouseDown = false; });
+
+      // Touch support
+      document.addEventListener('touchmove', function(e) {
+        mouseX = e.touches[0].clientX;
+        mouseY = e.touches[0].clientY;
+      });
+
+      document.addEventListener('touchstart', function(e) {
+        mouseDown = true;
+        mouseX = e.touches[0].clientX;
+        mouseY = e.touches[0].clientY;
+      });
+
+      document.addEventListener('touchend', function() { mouseDown = false; });
+
+      function rand(min, max) {
+        return Math.floor(Math.random() * (max - min)) + min;
+      }
+
+      // Clamp a vector to a max magnitude
+      function limit(vx, vy, max) {
+        var mag = Math.sqrt(vx * vx + vy * vy);
+        if (mag > max) { vx = vx / mag * max; vy = vy / mag * max; }
+        return [vx, vy];
+      }
+
+      // Set a vector to a specific magnitude
+      function setMag(vx, vy, mag) {
+        var m = Math.sqrt(vx * vx + vy * vy);
+        if (m === 0) return [0, 0];
+        return [vx / m * mag, vy / m * mag];
+      }
+
+      function createBoid() {
+        var el = document.createElement('p');
+        el.className = 'boid';
+        el.textContent = '*';
+
+        var fontSize = rand(10, 30);
+        var opacity  = rand(40, 90);
+        var blur     = rand(1, 4);
+        el.style.fontSize = fontSize + 'px';
+        el.style.filter   = 'blur(' + blur + 'px) opacity(' + opacity + '%)';
+
+        document.getElementById('body').appendChild(el);
+
+        var v = setMag(Math.random() - 0.5, Math.random() - 0.5, MAX_SPEED * Math.random());
+        return { el: el, x: Math.random() * W, y: Math.random() * H, vx: v[0], vy: v[1] };
+      }
+
+      function applyFlocking(boid) {
+        var sepX = 0, sepY = 0, sepN = 0;
+        var aliX = 0, aliY = 0, aliN = 0;
+        var cohX = 0, cohY = 0, cohN = 0;
+
+        for (var i = 0; i < boids.length; i++) {
+          var other = boids[i];
+          if (other === boid) continue;
+
+          var dx   = boid.x - other.x;
+          var dy   = boid.y - other.y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+
+          // Separation — steer away from close neighbours
+          if (dist < SEPARATION_DIST && dist > 0) {
+            sepX += dx / dist;
+            sepY += dy / dist;
+            sepN++;
+          }
+
+          // Alignment + cohesion — consider neighbours within perception radius
+          if (dist < PERCEPTION) {
+            aliX += other.vx;
+            aliY += other.vy;
+            aliN++;
+
+            cohX += other.x;
+            cohY += other.y;
+            cohN++;
+          }
+        }
+
+        var ax = 0, ay = 0;
+        var steer;
+
+        if (sepN > 0) {
+          steer = setMag(sepX / sepN, sepY / sepN, MAX_SPEED);
+          steer = limit(steer[0] - boid.vx, steer[1] - boid.vy, MAX_FORCE);
+          ax += steer[0] * W_SEP;
+          ay += steer[1] * W_SEP;
+        }
+
+        if (aliN > 0) {
+          steer = setMag(aliX / aliN, aliY / aliN, MAX_SPEED);
+          steer = limit(steer[0] - boid.vx, steer[1] - boid.vy, MAX_FORCE);
+          ax += steer[0] * W_ALI;
+          ay += steer[1] * W_ALI;
+        }
+
+        if (cohN > 0) {
+          steer = setMag(cohX / cohN - boid.x, cohY / cohN - boid.y, MAX_SPEED);
+          steer = limit(steer[0] - boid.vx, steer[1] - boid.vy, MAX_FORCE);
+          ax += steer[0] * W_COH;
+          ay += steer[1] * W_COH;
+        }
+
+        // Mouse attraction / repulsion
+        var mdx  = mouseX - boid.x;
+        var mdy  = mouseY - boid.y;
+        var mdist = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (mdist < MOUSE_RADIUS && mdist > 0) {
+          var dir = mouseDown ? -1 : 1;  // repel on click, attract on hover
+          var steerM = setMag(mdx, mdy, MAX_SPEED);
+          var forceM = limit((steerM[0] - boid.vx) * dir, (steerM[1] - boid.vy) * dir, MOUSE_FORCE);
+          ax += forceM[0];
+          ay += forceM[1];
+        }
+
+        boid.vx += ax;
+        boid.vy += ay;
+        var clamped = limit(boid.vx, boid.vy, MAX_SPEED);
+        boid.vx = clamped[0];
+        boid.vy = clamped[1];
+      }
+
+      function update() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+
+        for (var i = 0; i < boids.length; i++) {
+          var b = boids[i];
+
+          applyFlocking(b);
+
+          b.x += b.vx;
+          b.y += b.vy;
+
+          // Wrap around screen edges
+          if (b.x < 0)  b.x = W;
+          if (b.x > W)  b.x = 0;
+          if (b.y < 0)  b.y = H;
+          if (b.y > H)  b.y = 0;
+
+          b.el.style.transform = 'translate(' + b.x + 'px, ' + b.y + 'px)';
+        }
+
+        requestAnimationFrame(update);
+      }
+
+      for (var i = 0; i < NUM_BOIDS; i++) {
+        boids.push(createBoid());
+      }
+
+      requestAnimationFrame(update);
+
+    })();
+  </script>
+</body>
+</html>
